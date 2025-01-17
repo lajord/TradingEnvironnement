@@ -146,7 +146,7 @@ def resample_and_save(df, timeframes, output_folder):
         print(f"timeframe {tf} enregistré sous : {output_file}")
 
 
-input_file = r"H:\Desktop\Environement_Trading_Developement\USDJPY_M1_fixed.csv"
+input_file = r"H:\Desktop\Data\USDJPY_M1.csv"
 output_folder = r"H:\Desktop\Environement_Trading_Developement"  # Dossier de sortie
 
 # Charger les données
@@ -162,7 +162,7 @@ df.set_index('Datetime', inplace=True)
 
 
 # Appeler la fonction avec les timeframes souhaitées
-timeframes = ['D1']
+timeframes = ['H1']
 resample_and_save(df, timeframes, output_folder)
 def fix_time_format(input_file, output_file):
     """
