@@ -3,13 +3,21 @@ import pandas as pd
 import vectorbt as vbt
 import matplotlib.pyplot as plt
 import math
+import sys
+import os
+chemin_parent = os.path.abspath(r'C:\Users\Jordi\Desktop\Environement de developement\Trading_Dev_Stratégie_Environement\FunctionEssential')
+if chemin_parent not in sys.path:
+    sys.path.append(chemin_parent)
 
-USDJPY_W1 = pd.read_csv(r'H:\Desktop\Environement_Trading_Developement\USDJPY_W1.csv')
-USDJPY_D1 = pd.read_csv(r'H:\Desktop\Environement_Trading_Developement\USDJPY_D1.csv')
-USDJPY_H4 = pd.read_csv(r'H:\Desktop\Environement_Trading_Developement\USDJPY_H4.csv')
-USDJPY_H1 = pd.read_csv(r'H:\Desktop\Environement_Trading_Developement\USDJPY_H1.csv')
-USDJPY_M30 = pd.read_csv(r'H:\Desktop\Environement_Trading_Developement\USDJPY_M30.csv')
-USDJPY_M15 = pd.read_csv(r'H:\Desktop\Environement_Trading_Developement\USDJPY_M15.csv')
+import Trading_Dev_Stratégie_Environement.FunctionEssential.function_essential as fe
+
+
+USDJPY_W1 = pd.read_csv(r'C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_W1.csv')
+USDJPY_D1 = pd.read_csv(r'C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_D1.csv')
+USDJPY_H4 = pd.read_csv(r'C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_H4.csv')
+USDJPY_H1 = pd.read_csv(r'C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_H1.csv')
+USDJPY_M30 = pd.read_csv(r'C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_M30.csv')
+USDJPY_M15 = pd.read_csv(r'C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_M15.csv')
 USDJPY = {'USDJPY_W1' : USDJPY_W1,'USDJPY_D1' : USDJPY_D1,'USDJPY_H4' :USDJPY_H4,'USDJPY_H1' : USDJPY_H1, 'USDJPY_M30' : USDJPY_M30, 'USDJPY_M15' : USDJPY_M15}
 
 
@@ -280,19 +288,20 @@ class Strategie:
         # Concaténer les deux DataFrames sur l'index
         # pivot_and_TDI = pd.concat([angle_time_frame, point_pivot_df], axis=1)  # Ici j'ai bien le dataframe avec toute les colones de toute les valeurs que j'ai besoin 
         point_pivot_df = point_pivot_df.round(1)
-        print(point_pivot_df)
-        entries_long,entries_short = entries(angle_time_frame,['H4','H1','M30','M15'])
+        entries_long,entries_short = entries(angle_time_frame,['M30','M15'])
         exits_long, exits_short = exit(entries_long,entries_short,self.data[f'USDJPY_M15']['close'],point_pivot_df,2)
         close = self.data[f'USDJPY_M15']['close']
-        target_length = 522861
+        target_length = 571395
 
+        print(close.shape)
         # Vérifier si un ajustement est nécessaire
         if len(close) < target_length:
+            print('on va laaaa')
             # Créer une série avec des zéros pour compléter la différence
             additional_zeros = pd.Series(1, index=range(len(close), target_length))
             # Étendre la série close
             close = pd.concat([close, additional_zeros])
-        print(close.shape)
+        
         portfolio = vbt.Portfolio.from_signals(
             close,
             entries_long,
@@ -303,7 +312,7 @@ class Strategie:
             fees=0.001,  # Frais de transaction (0.1%)
         )
 
-        print(portfolio.total_return())
+        fe.get_pnl(portfolio)
 
 
 

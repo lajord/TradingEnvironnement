@@ -9,68 +9,11 @@ import MetaTrader5 as mt5
 
 
 
-MAJOR_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Trading_Dev_Stratégie_Environement\Data\DataHub/{0}.csv'
+MAJOR_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\DataHub\{0}.csv'
 
 
 
-def get_data_forex(symbols, timeframe=mt5.TIMEFRAME_M1):
-    """
-    Utilise metatrader 5
-    Récupère les données Forex pour les symboles donnés et les retourne sous forme de dictionnaire de DataFrames.
-
-    :param symbols: Liste des symboles à importer (ex: ["EURUSD", "GBPUSD"]).
-    :param timeframe: Période des chandeliers (par défaut 1 minute : mt5.TIMEFRAME_M1).
-    :param num_candles: Nombre de chandeliers à récupérer (par défaut 100).
-    :return: Dictionnaire contenant les DataFrames pour chaque symbole avec colonnes :
-             [date, time, symbol, open, high, low, close, volume, swap_long, swap_short].
-    """
-    if not mt5.initialize():
-        print("Erreur d'initialisation de MetaTrader5")
-        return None
-    
-
-    data_dict = {}
-    start_date = datetime(2006, 1, 1)
-    for symbol in symbols:
-        # Vérifier si le symbole est disponible
-        info = mt5.symbol_info(symbol)
-        if info is None:
-            print(f"Le symbole {symbol} n'est pas disponible.")
-            continue
-
-        # Activer le symbole si nécessaire
-        if not info.visible:
-            if not mt5.symbol_select(symbol, True):
-                print(f"Impossible de sélectionner le symbole {symbol}.")
-                continue
-
-        # Récupérer les données historiques
-        rates = mt5.copy_rates_range(symbol, timeframe, start_date, datetime.now())
-        if rates is None:
-            print(f"Erreur lors de la récupération des données pour {symbol}.")
-            continue
-
-        # Transformer les données en DataFrame
-        df = pd.DataFrame(rates)
-        df['date'] = pd.to_datetime(df['time'], unit='s').dt.date
-        df['time'] = pd.to_datetime(df['time'], unit='s').dt.time
-        df['symbol'] = symbol
-
-        # Ajouter les informations sur les swaps
-        df['swap_long'] = info.swap_long
-        df['swap_short'] = info.swap_short
-
-        # Sélectionner et réorganiser les colonnes
-        df = df[['date', 'time', 'symbol', 'open', 'high', 'low', 'close', 'tick_volume', 'swap_long', 'swap_short']]
-        df.rename(columns={'tick_volume': 'volume'}, inplace=True)
-
-        # Ajouter le DataFrame au dictionnaire
-        data_dict[symbol] = df
-
-    return data_dict
      
-
-
 
 
 
@@ -184,7 +127,6 @@ def get_pnl(portfolio):
 def get_mean_pnl_multi_asset(portfolio):
     all_values = portfolio.value()  
     mean_pnl = all_values.mean(axis=1) 
-    import matplotlib.pyplot as plt
     plt.figure(figsize=(12, 6))
     plt.plot(mean_pnl, label="Courbe PnL Moyenne (Lissée)")
     plt.xlabel("Temps")
@@ -235,6 +177,7 @@ Une focntion qui permet de renvoyer un dataframe comprenant toute les informatio
 
 Précond:
 Parametre de toute les combinaisons, et de la liste des potfolio 
+
 
 Postcond :
 renvoie un dataframe
