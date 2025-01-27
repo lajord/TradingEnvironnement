@@ -11,7 +11,7 @@ chemin_parent = os.path.abspath(r'C:\Users\Jordi\Desktop\Trading_Dev_Stratégie_
 if chemin_parent not in sys.path:
     sys.path.append(chemin_parent)
 
-import function_essential as fe
+import Trading_Dev_Stratégie_Environement.FunctionEssential.function_essential as fe
 
 
 #################################################################################################################

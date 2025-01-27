@@ -146,8 +146,8 @@ def resample_and_save(df, timeframes, output_folder):
         print(f"timeframe {tf} enregistré sous : {output_file}")
 
 
-input_file = r"H:\Desktop\Data\USDJPY_M1.csv"
-output_folder = r"H:\Desktop\Environement_Trading_Developement"  # Dossier de sortie
+input_file = r"C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_M1.csv"
+output_folder = r"C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major"  # Dossier de sortie
 
 # Charger les données
 df = pd.read_csv(input_file)
@@ -162,8 +162,11 @@ df.set_index('Datetime', inplace=True)
 
 
 # Appeler la fonction avec les timeframes souhaitées
-timeframes = ['H1']
+timeframes = ['M15','M30','H1','H4','D1','W1']
 resample_and_save(df, timeframes, output_folder)
+
+
+
 def fix_time_format(input_file, output_file):
     """
     Corrige le format de la colonne 'time' en ajoutant ':00' pour compléter le format hh:mm:ss.
@@ -196,8 +199,8 @@ def fix_time_format(input_file, output_file):
     print(f"Fichier corrigé sauvegardé sous : {output_file}")
 
 
-# # Exemple d'utilisation
-# input_file = r"H:\Desktop\Environement_Trading_Developement\USDJPY_M1.csv"
-# output_file = r"H:\Desktop\Environement_Trading_Developement\USDJPY_M1_fixed.csv"
+# Exemple d'utilisation
+# input_file = r"C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_M1.csv"
+# output_file = r"C:\Users\Jordi\Desktop\Environement de developement\Data\FX\Major\USDJPY_M1_fixed.csv"
 
 # fix_time_format(input_file, output_file)
