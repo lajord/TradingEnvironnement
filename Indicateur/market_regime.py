@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 
 """
 LAW OF REVERSION
@@ -9,6 +10,8 @@ L'objectif de cette indicateur c'est d'essayer d'isoler les périodes de range /
 L'indicateur ce base sur la règle des 75% expliquer dans le livre
 
 l'indicateur aura une seuil au 75 et une valeur entière possitive comprise entre 0 et 100 inclus 
+
+Fenetre loockback = 150
 
 """
 
@@ -49,7 +52,9 @@ def market_regime(close, windows):
     # Ajouter des NaN initiaux
     market_regime_value = [np.nan] * (windows * 2) + market_regime_value
     market_regime_value = np.array(market_regime_value)
+    market_regime_smoothed = pd.Series(market_regime_value).rolling(window=1, min_periods=1).mean()  #Lisser le prix du market regime -> J'ai mis le params a 1 la 
 
-    print(market_regime_value.shape)
-    return market_regime_value
+
+    return market_regime_smoothed
+
 
