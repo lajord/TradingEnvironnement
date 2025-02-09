@@ -10,13 +10,13 @@ pio.templates.default = "plotly_dark"
 
 
 
-# INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
-# INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
-# FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
+INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
+FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
 
-INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
-INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
-FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
+# INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
+# INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
+# FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
 
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
@@ -451,7 +451,32 @@ def generate_portfolio_report(portfolio, close):
     print('\n-----------------------------------------------------------\n')
 
 
+def generate_portfolio_report_order_function(portfolio, close):
+    benchmark_return, benchmark_sharp = get_metrics_buy_and_hold(close)
 
+    print('\n-----------------------REPORT METRICS-----------------------\n\n')
+    print(f"Total Return : {round(portfolio.total_return() * 100, 2)}%")
+    print(f'Benchmark return : {round(benchmark_return*100,2)}%')
+    print(f"CAGR : {round(portfolio.annualized_return()*100,2)}%")
+    print(f"Volatility : {round(portfolio.annualized_volatility()*100,2)}%")
+    print(f"Sharpe Ratio : {round(portfolio.sharpe_ratio(),2)}")
+    print(f'Benchmark sharpe ratio : {round(benchmark_sharp,2)}')
+    print(f"Max Drawdown: {round(portfolio.max_drawdown()*100,2)}%")
+    print(f"Calmar Ratio : {round(portfolio.calmar_ratio(),2)}")
+    print(f"Beta : {round(portfolio.beta(),2)}")
+    print('\n\n--------------- REPORT METRICS TRADES--------------------')
+    print('\n')
+    print(f'Total trades : {round(portfolio.trades.count(),0)}')
+    print(f"Total long trades {portfolio.trades.long.count()}")
+    print(f"Total short trades {portfolio.trades.short.count()}")
+    print(f"Win rate : {portfolio.trades.closed.win_rate()}%")
+    print(f"Wining streak : {portfolio.trades.winning_streak.max()}")
+    print(f"Loosing streak : {portfolio.trades.losing_streak.max()}")
+    print(f"Average winning trade : {round(portfolio.trades.winning.returns.mean(),2)*100}%")
+    print(f"Average losing trade : {round(portfolio.trades.losing.returns.mean(),2)*100}%")
+    print(f"Profit factor : {round(portfolio.trades.profit_factor(),2)}")
+    print(f"Expectancy : {round(portfolio.trades.expectancy(),2)}%")
+    print('\n-----------------------------------------------------------\n')
 
 
 def get_metrics_buy_and_hold(close):
