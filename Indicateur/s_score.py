@@ -1,15 +1,18 @@
-import pandas as pd
 import numpy as np
-from scipy.stats import norm
-from scipy.optimize import minimize
-import scipy.stats as stats
-from scipy.optimize import differential_evolution
-from statsmodels.api import OLS 
-import datetime
+import pandas as pd
+from arch import arch_model
+from statsmodels.tsa.stattools import adfuller
+from joblib import Parallel, delayed
+from tqdm import tqdm
+from tqdm_joblib import tqdm_joblib
+from statsmodels.api import OLS
 
-
-
-
+def compute_dt(datetime_array):
+    dt_seconds = np.diff(datetime_array)
+    dt_years = dt_seconds / (252 * 24 * 3600)
+    mean_dt = np.mean(dt_years)
+    dt_years = np.insert(dt_years, 0, mean_dt)
+    return dt_years
 
 def method_moment(X, dt):
     X = np.ravel(X)
@@ -17,80 +20,107 @@ def method_moment(X, dt):
     X = X[:-1]
     mu = X.mean()
     exog = (mu - X) * dt
-    mode1 = OLS(endog=deltaX, exog=exog)
-    res = mode1.fit()
+    model = OLS(endog=deltaX, exog=exog)
+    res = model.fit()
     theta = res.params[0]
     resid = deltaX - theta * exog
     sigma = resid.std() / np.sqrt(dt)
     return theta, mu, sigma
 
+def s_score(X, theta, mu, sigma):
+    sigma_eq = sigma / np.sqrt(2 * theta)
+    return (X - mu) / sigma_eq
 
-def sigma_eqq(sigma,theta):
-    return sigma/np.sqrt(2*theta)
+def adjust_s_score(s_score, adf_p_value):
+    adjustment_factor = 0.1 + (2.0 - 0.1) * (1 - np.exp(-5 * (1 - adf_p_value)))
+    adjusted_s_score = s_score * adjustment_factor
+    return adjusted_s_score
 
-def s_score(mu,sigma,theta,X):
-    sigmaeqq = sigma_eqq(sigma,mu)
-    return (X-mu) / sigmaeqq
+def compute_adf_test(x, windows):
+    x = np.asarray(x)
+    if np.count_nonzero(~np.isnan(x)) >= windows / 2:
+        x_clean = x[~np.isnan(x)]
+        result = adfuller(x_clean)
+        return result[1]
+    else:
+        return 1
 
+def compute_dynamic_volatility(series, model_type="EGARCH"):
+    series = np.log(series).diff().dropna()
+    if model_type == "EGARCH":
+        model = arch_model(series, vol="EGARCH", p=1, q=1, rescale=False)
+    else:
+        model = arch_model(series, vol="Garch", p=1, q=1, rescale=False)
+    res = model.fit(disp="off")
+    conditional_vol = res.conditional_volatility
+    return conditional_vol
 
+def apply_volatility_brake(s_score, sigma_t, lambda_=0.5):
+    volatility_brake = np.exp(-lambda_ * sigma_t)
+    return s_score * volatility_brake
 
-def mean_reversion(close,windows):
+def mean_reversion(close, datetime, windows, frein, lambda_, modele):
+    try:
+        if frein not in ["ADF", "VOL"]:
+            raise ValueError(f"Paramètre 'frein' invalide : {frein}. Les valeurs acceptées sont 'ADF' ou 'VOL'.")
 
-    theta_vals = []
-    mu_vals = []
-    sigma_vals = []
-    value_s_score=[]
-    dt = 1.0/len(close)
+        datetime = pd.to_datetime(datetime)
+        dt_array = datetime.astype(np.int64) // 10**9  # Utiliser astype au lieu de view
+        dt_result = compute_dt(dt_array)
+        dt_series = pd.Series(dt_result, index=close.index)
+        total_iterations = len(close) - windows
 
+        with tqdm_joblib(tqdm(desc="Estimation des paramètres OU", total=total_iterations)):
+            params = Parallel(n_jobs=-1)(
+                delayed(method_moment)(close.iloc[i:i + windows], dt_series.iloc[i])
+                for i in range(total_iterations)
+            )
 
-    # # Estimation des parametres
-    for i in range(len(close) - windows + 1):
-        window_data = close[i:i + windows]
-        theta, mu, sigma = method_moment(window_data, dt)
-        theta_vals.append(theta)
-        mu_vals.append(mu)
-        sigma_vals.append(sigma)
+        theta_vals, mu_vals, sigma_vals = zip(*params)
+        theta_vals = [np.nan] * windows + list(theta_vals)
+        mu_vals = [np.nan] * windows + list(mu_vals)
+        sigma_vals = [np.nan] * windows + list(sigma_vals)
 
-    theta_vals = [np.nan] * (windows - 1) + theta_vals
-    mu_vals = [np.nan] * (windows - 1) + mu_vals
-    sigma_vals = [np.nan] * (windows - 1) + sigma_vals
+        value_s_score = [
+            s_score(close.iloc[i], theta_vals[i], mu_vals[i], sigma_vals[i])
+            for i in range(windows, len(close))
+        ]
+        s = [np.nan] * windows + value_s_score
 
-    # Calcul du S-score sur la fenetre prédef
-    for i in range(windows, len(close)):
-        theta =  theta_vals[i]
-        sigma =  sigma_vals[i]
-        mu = mu_vals[i]
-        X = close[i]
-        score = s_score(mu, sigma, theta, X)
-        value_s_score.append(score)
+        if frein == "ADF":
+            with tqdm_joblib(tqdm(desc="Test adf (stationarité des séries temporelles)", total=total_iterations)):
+                adf_p = Parallel(n_jobs=-1)(
+                    delayed(compute_adf_test)(s[i:i + windows], windows)
+                    for i in range(total_iterations)
+                )
 
-    value_s_score = [np.nan] * (windows) + value_s_score
-    value_s_score = pd.Series(value_s_score).rolling(window=10).mean()
+            adjusted_s_scores = [
+                adjust_s_score(value_s_score[i], adf_p[i])
+                for i in range(len(value_s_score))
+            ]
 
-    df = pd.DataFrame({'S_Score': value_s_score})
-    df['MA30'] = df['S_Score'].rolling(window=50).mean()
+            adjusted_s_scores_adf = [np.nan] * windows + adjusted_s_scores
+            s_score_value = pd.Series(s)
+            adjusted_s_scores_adf = pd.Series(adjusted_s_scores_adf, index=s_score_value.index)
 
-    #Ajout de la upper band et de la lower band
-    rolling_window = 200
-    df['Mean'] = df['S_Score'].rolling(window=rolling_window).mean()
-    df['Std'] = df['S_Score'].rolling(window=rolling_window).std()
-    df['Upper_Band'] = df['Mean'] + 2.5 * df['Std']    ## IMPORTANT => Ici je calcul la moyenne et apres je fais + et - mais théoriquement la moyenne est de 0 donc si les résultats sont moyen juste ne calcul pas la moyenne et j'ai 0 - + std 1,5
-    df['Lower_Band'] = df['Mean'] - 2.5 * df['Std']
-    df = df.drop(columns=['Mean', 'Std'])
+            return [s_score_value, adjusted_s_scores_adf, theta_vals, mu_vals,sigma_vals]
 
-    return df['S_Score'],df['MA30'],df['Upper_Band'],df['Lower_Band']
+        if frein == "VOL":
+            with tqdm(desc="Calcul de la volatilité conditionnelle", total=len(close)) as pbar:
+                conditional_vol = compute_dynamic_volatility(close, modele)
+                pbar.update(len(close))
 
-### df a 4 colonnes -> s-score | s-score ma 30 | Upper_Band | Lower_Band
+            adjusted_s_scores_vol = [
+                apply_volatility_brake(value_s_score[i], conditional_vol.iloc[i], lambda_)
+                for i in range(len(value_s_score))
+            ]
 
+            adjusted_s_scores_vol = [np.nan] * windows + adjusted_s_scores_vol
+            s_score_value = pd.Series(s)
+            adjusted_s_scores_vol = pd.Series(adjusted_s_scores_vol, index=s_score_value.index)
 
-"""
+            return [s_score_value, adjusted_s_scores_vol, theta_vals, mu_vals, sigma_vals]
 
-Le dataframe doit avoir
-s-score | s-score ma 30 | std sup 1.5 | std inf 1.5
-
- tu calculs les ecart type sur une fenetres mais ca peut pas etre la meme que celle pour le calcul du s-score.. car y'a besoin de beaucoup d'échantillon au moins 1 année soit
-
- parcourir le s-score sur une fenetre de 200 pour ensuite le mettre dans le dataframe final.. 
-
-
-"""
+    except ValueError as e:
+        print(f"Erreur : {e}")
+        return None

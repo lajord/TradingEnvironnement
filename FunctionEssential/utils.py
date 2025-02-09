@@ -10,9 +10,13 @@ pio.templates.default = "plotly_dark"
 
 
 
-INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
-INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
-FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+# INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
+# INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
+# FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+
+INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
+INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
+FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
 
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
@@ -219,8 +223,8 @@ def resample_and_return(df,timeframes):
         'M5': '5T',   # 5 minutes
         'M15': '15T', # 15 minutes
         'M30': '30T', # 30 minutes
-        'H1': '1H',   # 1 heure
-        'H4': '4H',   # 4 heures
+        'H1': '1h',   # 1 heure
+        'H4': '4h',   # 4 heures
         'D1': '1D',    # 1 jour
         'W1': '1W'  #1 week
     }
