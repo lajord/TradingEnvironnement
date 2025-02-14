@@ -59,10 +59,15 @@ def apply_volatility_brake(s_score, sigma_t, lambda_=0.5):
     volatility_brake = np.exp(-lambda_ * sigma_t)
     return s_score * volatility_brake
 
+
+
+
 def mean_reversion(close, datetime, windows, frein, lambda_, modele):
     try:
         if frein not in ["ADF", "VOL"]:
             raise ValueError(f"Paramètre 'frein' invalide : {frein}. Les valeurs acceptées sont 'ADF' ou 'VOL'.")
+
+        
 
         datetime = pd.to_datetime(datetime)
         dt_array = datetime.astype(np.int64) // 10**9  # Utiliser astype au lieu de view
@@ -87,6 +92,9 @@ def mean_reversion(close, datetime, windows, frein, lambda_, modele):
         ]
         s = [np.nan] * windows + value_s_score
 
+
+
+
         if frein == "ADF":
             with tqdm_joblib(tqdm(desc="Test adf (stationarité des séries temporelles)", total=total_iterations)):
                 adf_p = Parallel(n_jobs=-1)(
@@ -106,10 +114,11 @@ def mean_reversion(close, datetime, windows, frein, lambda_, modele):
             return [s_score_value, adjusted_s_scores_adf, theta_vals, mu_vals,sigma_vals]
 
         if frein == "VOL":
+
             with tqdm(desc="Calcul de la volatilité conditionnelle", total=len(close)) as pbar:
                 conditional_vol = compute_dynamic_volatility(close, modele)
                 pbar.update(len(close))
-
+            print(len(conditional_vol))
             adjusted_s_scores_vol = [
                 apply_volatility_brake(value_s_score[i], conditional_vol.iloc[i], lambda_)
                 for i in range(len(value_s_score))

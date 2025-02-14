@@ -1,5 +1,6 @@
 import plotly.graph_objects as go
 import plotly.io as pio  
+import plotly.express as px
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -10,13 +11,13 @@ pio.templates.default = "plotly_dark"
 
 
 
-INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
-INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
-FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+# INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
+# INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
+# FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
 
-# INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
-# INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
-# FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
+INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
+INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
+FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
 
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
@@ -51,10 +52,13 @@ def get_data_indice(tickers, frequence, start_period=None, end_period=None):
     # Uniformisation de la taille (version corrigée)
     for ticker, df in data_dict.items():
         if len(df) < max_length:
-            fill_data = {col: [np.nan]*(max_length - len(df)) for col in df.columns}
-            data_dict[ticker] = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
+            fill_data = {col: [np.nan] * (max_length - len(df)) for col in df.columns}
+            df = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
+            df.index.name = 'Datetime'  
+            data_dict[ticker] = df
 
     return data_dict
+
 
 
 
@@ -89,8 +93,10 @@ def get_data_forex(tickers, frequence, start_period=None, end_period=None):
     # Uniformisation de la taille (version corrigée)
     for ticker, df in data_dict.items():
         if len(df) < max_length:
-            fill_data = {col: [np.nan]*(max_length - len(df)) for col in df.columns}
-            data_dict[ticker] = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
+            fill_data = {col: [np.nan] * (max_length - len(df)) for col in df.columns}
+            df = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
+            df.index.name = 'Datetime'  
+            data_dict[ticker] = df
 
     return data_dict
 
@@ -247,9 +253,7 @@ def resample_and_return(df,timeframes):
     
 
 
-"""
-Cette fonction je dois la refaire car on a un csv en 100 ticks donc c'est plus une question de Bid ou ask etc juste tu aggreges la 
-"""
+
 
 def aggregate_ticks_to_bars(df, ticks_per_bar):
     # Vérifier que ticks_per_bar est divisible par 100
@@ -292,6 +296,12 @@ def aggregate_ticks_to_bars(df, ticks_per_bar):
     })
 
     return aggregated_data
+
+
+
+
+
+
 
 #------------------------------------------------------------------------------------------------------------------#
 
@@ -396,87 +406,47 @@ def get_pnl(portfolio):
     fig.update_layout(template="plotly_dark")  
     fig.show()
 
-
-def get_mean_pnl_multi_asset(portfolio):
-    all_values = portfolio.value()  
-    mean_pnl = all_values.mean(axis=1) 
-    plt.figure(figsize=(12, 6))
-    plt.plot(mean_pnl, label="Courbe PnL Moyenne (Lissée)")
-    plt.xlabel("Temps")
-    plt.ylabel("Valeur Moyenne du Portefeuille")
-    plt.title("Performance Moyenne du Portefeuille Multi-Actifs")
-    plt.legend()
-    plt.show()
-
 #-----------------------------------------------------------------------------------------------------------------#
+
+
+
+
+
+
+
 
 
 
 #------------------------------------------------------METRICS----------------------------------------------------#
 
 
-def generate_portfolio_report(portfolio, close):
-    """
-    Génère un rapport de métriques à partir d'un objet Portfolio de vectorbt et affiche les résultats.
-    
-    :param portfolio: Objet Portfolio de vectorbt
-    :param benchmark_returns: Séries temporelles des rendements du benchmark pour calculer le beta
-
-    
-    """
-    benchmark_return, benchmark_sharp = get_metrics_buy_and_hold(close)
-
-    print('\n-----------------------REPORT METRICS-----------------------\n\n')
-    print(f"Total Return : {round(portfolio.total_return().iloc[-1] * 100, 2)}%")
-    print(f'Benchmark return : {round(benchmark_return.iloc[-1]*100,2)}%')
-    print(f"CAGR : {round(portfolio.annualized_return().iloc[-1]*100,2)}%")
-    print(f"Volatility : {round(portfolio.annualized_volatility().iloc[-1]*100,2)}%")
-    print(f"Sharpe Ratio : {round(portfolio.sharpe_ratio().iloc[-1],2)}")
-    print(f'Benchmark sharpe ratio : {round(benchmark_sharp.iloc[-1],2)}')
-    print(f"Max Drawdown: {round(portfolio.max_drawdown().iloc[-1]*100,2)}%")
-    print(f"Calmar Ratio : {round(portfolio.calmar_ratio().iloc[-1],2)}")
-    print(f"Beta : {round(portfolio.beta().iloc[-1],2)}")
-    print('\n\n--------------- REPORT METRICS TRADES--------------------')
-    print('\n')
-    print(f'Total trades : {round(portfolio.trades.count().iloc[-1],0)}')
-    print(f"Total long trades {portfolio.trades.long.count().iloc[-1]}")
-    print(f"Total short trades {portfolio.trades.short.count().iloc[-1]}")
-    print(f"Win rate : {portfolio.trades.closed.win_rate().iloc[-1]}%")
-    print(f"Wining streak : {portfolio.trades.winning_streak.max().iloc[-1]}")
-    print(f"Loosing streak : {portfolio.trades.losing_streak.max().iloc[-1]}")
-    print(f"Average winning trade : {round(portfolio.trades.winning.returns.mean().iloc[-1],2)*100}%")
-    print(f"Average losing trade : {round(portfolio.trades.losing.returns.mean().iloc[-1],2)*100}%")
-    print(f"Profit factor : {round(portfolio.trades.profit_factor().iloc[-1],2)}")
-    print(f"Expectancy : {round(portfolio.trades.expectancy().iloc[-1],2)}%")
-    print('\n-----------------------------------------------------------\n')
 
 
-def generate_portfolio_report_order_function(portfolio, close):
-    benchmark_return, benchmark_sharp = get_metrics_buy_and_hold(close)
 
-    print('\n-----------------------REPORT METRICS-----------------------\n\n')
-    print(f"Total Return : {round(portfolio.total_return() * 100, 2)}%")
+def generate_metrics_report(portfolio, close,ticker):
+    benchmark_return, benchmark_sharp = get_metrics_buy_and_hold(close[ticker])
+    port = portfolio[ticker]
+
+    print(f"Total Return : {round(port.total_return() * 100, 2)}%")
     print(f'Benchmark return : {round(benchmark_return*100,2)}%')
-    print(f"CAGR : {round(portfolio.annualized_return()*100,2)}%")
-    print(f"Volatility : {round(portfolio.annualized_volatility()*100,2)}%")
-    print(f"Sharpe Ratio : {round(portfolio.sharpe_ratio(),2)}")
+    print(f"CAGR : {round(port.annualized_return()*100,2)}%")
+    print(f"Volatility : {round(port.annualized_volatility()*100,2)}%")
+    print(f"Sharpe Ratio : {round(port.sharpe_ratio(),2)}")
     print(f'Benchmark sharpe ratio : {round(benchmark_sharp,2)}')
-    print(f"Max Drawdown: {round(portfolio.max_drawdown()*100,2)}%")
-    print(f"Calmar Ratio : {round(portfolio.calmar_ratio(),2)}")
-    print(f"Beta : {round(portfolio.beta(),2)}")
-    print('\n\n--------------- REPORT METRICS TRADES--------------------')
+    print(f"Max Drawdown: {round(port.max_drawdown()*100,2)}%")
+    print(f"Calmar Ratio : {round(port.calmar_ratio(),2)}")
+    print(f"Beta : {round(port.beta(),2)}")
     print('\n')
-    print(f'Total trades : {round(portfolio.trades.count(),0)}')
-    print(f"Total long trades {portfolio.trades.long.count()}")
-    print(f"Total short trades {portfolio.trades.short.count()}")
-    print(f"Win rate : {portfolio.trades.closed.win_rate()}%")
-    print(f"Wining streak : {portfolio.trades.winning_streak.max()}")
-    print(f"Loosing streak : {portfolio.trades.losing_streak.max()}")
-    print(f"Average winning trade : {round(portfolio.trades.winning.returns.mean(),2)*100}%")
-    print(f"Average losing trade : {round(portfolio.trades.losing.returns.mean(),2)*100}%")
-    print(f"Profit factor : {round(portfolio.trades.profit_factor(),2)}")
-    print(f"Expectancy : {round(portfolio.trades.expectancy(),2)}%")
-    print('\n-----------------------------------------------------------\n')
+    print(f'Total trades : {round(port.trades.count(),0)}')
+    print(f"Total long trades {port.trades.long.count()}")
+    print(f"Total short trades {port.trades.short.count()}")
+    print(f"Win rate : {round(port.trades.closed.win_rate(),2)}%")
+    print(f"Wining streak : {port.trades.winning_streak.max()}")
+    print(f"Loosing streak : {port.trades.losing_streak.max()}")
+    print(f"Average winning trade : {round(port.trades.winning.returns.mean(),2)*100}%")
+    print(f"Average losing trade : {round(port.trades.losing.returns.mean(),2)*100}%")
+    print(f"Profit factor : {round(port.trades.profit_factor(),2)}")
+    print(f"Expectancy : {round(port.trades.expectancy(),2)}%")
 
 
 def get_metrics_buy_and_hold(close):
@@ -493,3 +463,105 @@ def get_metrics_buy_and_hold(close):
 
 
 
+
+
+
+def rapport_backtest(portfolio,close,datetime,tickers):
+    if len(tickers) >1:
+        get_pnl(portfolio)
+        print('\n---------------------------------------------------------------GLOBAL EQUITY CURVE---------------------------------------------------------------\n')
+        get_equity_global(portfolio,tickers)
+        print('\n------------------------------------------------------------------GLOBAL METRICS-----------------------------------------------------------------\n')
+    for ticker in tickers:
+        print(f'\n------------------------------------------------------------------DETAILS : {ticker}-----------------------------------------------------------------\n')
+        generate_metrics_report(portfolio,close,ticker)
+        get_pnl(portfolio[ticker])
+        average_duration_and_plot(portfolio[ticker],datetime[ticker])
+        portfolio.plot_drawdowns(column=ticker).show()
+        portfolio.plot_underwater(column=ticker).show()
+        print('\n--------------------------------------------------------------------------------------------------------------------------------------------------\n')
+
+
+def average_duration_and_plot(port, datatime):
+    exits_idx = port.trades.records_readable['Exit Timestamp']
+    entries_idx = port.trades.records_readable['Entry Timestamp']
+    exits_dt = datatime.iloc[exits_idx].astype('datetime64[ns]')
+    entries_dt = datatime.iloc[entries_idx].astype('datetime64[ns]')
+    trade_durations = (exits_dt.values - entries_dt.values) / pd.Timedelta(days=1)
+    trade_durations = trade_durations[trade_durations >= 0]  # Enlever les durées négatives
+    trade_returns = port.trades.records_readable['Return']
+    # Vérification de la taille des séries et ajustement
+    min_length = min(len(trade_durations), len(trade_returns))
+    trade_durations = trade_durations[:min_length]
+    trade_returns = trade_returns[:min_length]
+    df = pd.DataFrame({
+        "duration_days": trade_durations,
+        "return": trade_returns
+    })
+    df["date"] = entries_dt.dt.date
+    avg_duration_per_day = df['duration_days'].mean()
+    # Création du graphique avec Plotly Graph Objects
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df["duration_days"],
+        y=df["return"],
+        mode='markers',
+        marker=dict(size=8, color="blue", opacity=0.7),
+        name="Trade Returns"
+    ))
+    fig.add_hline(y=0, line_dash="dash", line_color="red", name="Neutral Return Line")  # Ligne horizontale à Y=0
+    fig.update_layout(
+        title="Durée des Trades vs Rendement",
+        xaxis_title="Durée du trade (jours)",
+        yaxis_title="Rendement du trade",
+        template="plotly_white",
+        showlegend=True,
+        width=700,  # Ajuster la largeur du graphique
+        height=500,  # Ajuster la hauteur du graphique
+    )
+    fig.show()
+    print(f'\n -> Average duration trades (jour) : {round(avg_duration_per_day,2)}\n')
+    return avg_duration_per_day
+
+
+
+
+def get_equity_global(portfolio, tickers, initial_capital=100000):
+    all_trades_returns = [] 
+    smoothing_window=5
+    for ticker in tickers:
+        trade_returns = portfolio[ticker].trades.records_readable['Return']  
+        all_trades_returns.append(trade_returns)
+    if not all_trades_returns:
+        print("Aucun trade trouvé !")
+        return None
+    combined_returns = pd.concat(all_trades_returns).sort_index()
+    global_equity_curve = (1 + combined_returns).cumprod() * initial_capital
+    smoothed_equity_curve = global_equity_curve.rolling(window=smoothing_window, min_periods=1).mean()
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=smoothed_equity_curve.index, 
+        y=smoothed_equity_curve, 
+        mode='lines',
+        name='Smoothed Equity Curve',
+        line=dict(color='red', width=2)
+    ))
+    fig.update_layout(
+        title="Performance du Portefeuille (Lissé)",
+        xaxis_title="Trade Number",
+        yaxis_title="Portfolio Value ($)",
+        template="plotly_dark",
+        hovermode="x",
+        width=900,  
+        height=500  
+    )
+    fig.show()
+    return global_equity_curve
+
+
+
+def get_metrics_global():
+
+    # Calculer le sharp, total return, return annualized etc
+    # Addition le total trade / win rate etc -> Faire le meme rapport de metrics que le individuel
+    pass
