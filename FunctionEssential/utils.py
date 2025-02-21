@@ -11,13 +11,13 @@ pio.templates.default = "plotly_dark"
 
 
 
-INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
-INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
-FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+# INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
+# INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
+# FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
 
-# INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
-# INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
-# FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
+INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
+INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
+FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
 
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
