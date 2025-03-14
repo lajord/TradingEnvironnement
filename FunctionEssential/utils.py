@@ -2,6 +2,8 @@ import plotly.graph_objects as go
 import plotly.io as pio  
 import plotly.express as px
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
 import pandas as pd
 import numpy as np
 import vectorbt as vbt
@@ -11,13 +13,14 @@ pio.templates.default = "plotly_dark"
 
 
 
-# INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
-# INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
-# FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
+INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
+FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+CRYPTO_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\CryptoHub\{0}.csv'
 
-INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
-INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
-FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
+# INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
+# INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
+# FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
 
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
@@ -63,43 +66,42 @@ def get_data_indice(tickers, frequence, start_period=None, end_period=None):
 
 
 
-def get_data_forex(tickers, frequence, start_period=None, end_period=None):
-    data_dict = {}  
-    max_length = 0  
+def get_data_forex(tickers, frequences, start_period=None, end_period=None):
+    data_dict = {freq: {} for freq in frequences}  
+    max_length = {freq: 0 for freq in frequences}  
 
     for ticker in tickers:
         file_path = FOREX_PATH.format(ticker)
         try:
-            # Chargement et uniformisation
             df = pd.read_csv(file_path)
-            df = uniform_convention_data(df)  # Datetime est maintenant l'index
-
-            # Filtrage via l'index
+            df = uniform_convention_data(df)  # Standardiser les conventions
+            
             if start_period:
                 start_date = pd.to_datetime(start_period)
                 df = df.loc[df.index >= start_date]
             if end_period:
                 end_date = pd.to_datetime(end_period)
                 df = df.loc[df.index <= end_date]
-            # Resample
-            df = resample_and_return(df, frequence)
-            # Mettre à jour la longueur maximale
-            max_length = max(max_length, len(df))
-            data_dict[ticker] = df
 
+            # Appliquer le resampling pour chaque fréquence demandée
+            for freq in frequences:
+                df_resampled = resample_and_return(df, freq)
+                data_dict[freq][ticker] = df_resampled  # Stocker le dataframe
+                max_length[freq] = max(max_length[freq], len(df_resampled))  # Mettre à jour max_length
+                
         except Exception as e:
             print(f"Erreur lors du chargement des données pour {ticker}: {e}")
 
-    # Uniformisation de la taille (version corrigée)
-    for ticker, df in data_dict.items():
-        if len(df) < max_length:
-            fill_data = {col: [np.nan] * (max_length - len(df)) for col in df.columns}
-            df = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
-            df.index.name = 'Datetime'  
-            data_dict[ticker] = df
+    # Uniformiser les tailles pour chaque timeframe
+    for freq, tickers_data in data_dict.items():
+        for ticker, df in tickers_data.items():
+            if len(df) < max_length[freq]:
+                fill_data = {col: [np.nan] * (max_length[freq] - len(df)) for col in df.columns}
+                df = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
+                df.index.name = 'Datetime'
+                data_dict[freq][ticker] = df  # Mettre à jour avec la version uniformisée
 
     return data_dict
-
 
 def get_data_indice_tick(tickers,tick,start_period=None,end_period=None):
     data_dict = {}  
@@ -140,29 +142,42 @@ def get_data_indice_tick(tickers,tick,start_period=None,end_period=None):
     return data_dict
 
 
-def get_data_crypto(ticker,start_date,end_date,frequence):
-    client = Client('','')
+def get_data_crypto(tickers, frequences, start_period=None, end_period=None):
+    data_dict = {freq: {} for freq in frequences}  
+    max_length = {freq: 0 for freq in frequences}  
 
-    klines = client.get_historical_klines(ticker[0],frequence,start_date,end_date)
-    # Create a DataFrame from the klines
-    df = pd.DataFrame(klines, columns=[
-                                        'open_time','open', 'high', 'low', 'close',
-                                            'volume','close_time', 'dv','num_trades',
-                                            'taker_buy_vol','taker_buy_base_vol', 'ignore'
-                                    ])
+    for ticker in tickers:
+        file_path = CRYPTO_PATH.format(ticker)
+        try:
+            df = pd.read_csv(file_path)
+            df = uniform_convention_data(df)  # Standardiser les conventions
+            
+            if start_period:
+                start_date = pd.to_datetime(start_period)
+                df = df.loc[df.index >= start_date]
+            if end_period:
+                end_date = pd.to_datetime(end_period)
+                df = df.loc[df.index <= end_date]
 
-    # Set Close time to datetime Type and as index
-    df['close_time'] = pd.to_datetime(df['close_time'], unit='ms')
-    df.set_index('close_time', inplace=True)
-    df.drop(columns=['open_time','ignore'], inplace=True)
+            # Appliquer le resampling pour chaque fréquence demandée
+            for freq in frequences:
+                df_resampled = resample_and_return(df, freq)
+                data_dict[freq][ticker] = df_resampled  # Stocker le dataframe
+                max_length[freq] = max(max_length[freq], len(df_resampled))  # Mettre à jour max_length
+                
+        except Exception as e:
+            print(f"Erreur lors du chargement des données pour {ticker}: {e}")
 
-    # Round close time to normalize
-    df.index = df.index.round('min')
+    # Uniformiser les tailles pour chaque timeframe
+    for freq, tickers_data in data_dict.items():
+        for ticker, df in tickers_data.items():
+            if len(df) < max_length[freq]:
+                fill_data = {col: [np.nan] * (max_length[freq] - len(df)) for col in df.columns}
+                df = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
+                df.index.name = 'Datetime'
+                data_dict[freq][ticker] = df  # Mettre à jour avec la version uniformisée
 
-    # Convert columns to float type
-    df = df.astype(float)
-
-    return df
+    return data_dict
 
 
 
@@ -303,6 +318,48 @@ def aggregate_ticks_to_bars(df, ticks_per_bar):
 
 
 
+
+
+
+
+def resample_shape_frequence(referenciel, modifier):
+    original_index_type = type(modifier.index)  
+    if not isinstance(referenciel.index, pd.DatetimeIndex):
+        referenciel.index = pd.to_datetime(referenciel.index)
+    if not isinstance(modifier.index, pd.DatetimeIndex):
+        modifier.index = pd.to_datetime(modifier.index)
+
+    if not isinstance(referenciel.index, pd.DatetimeIndex):
+        raise ValueError("L'index de `referenciel` n'est pas un DatetimeIndex après conversion.")
+    if not isinstance(modifier.index, pd.DatetimeIndex):
+        raise ValueError("L'index de `modifier` n'est pas un DatetimeIndex après conversion.")
+
+
+    if len(modifier) > len(referenciel):
+        raise ValueError("Le dataframe `modifier` contient plus de valeurs que `referenciel`, ce qui est incohérent.")
+
+
+    taille_initiale = len(referenciel)
+    referenciel_clean = referenciel.dropna(how='all').sort_index()
+    modifier_clean = modifier.dropna(how='all').sort_index()
+    modifier_aligned = modifier_clean.reindex(referenciel_clean.index, method='ffill')
+    try:
+        modifier_aligned.index = original_index_type(modifier_aligned.index)
+    except Exception as e:
+        print(f"Impossible de restaurer l'index original ({original_index_type}): {e}")
+    if len(modifier_aligned) < taille_initiale:
+        nan_pad = pd.DataFrame(index=referenciel.index[len(modifier_aligned):], columns=modifier_aligned.columns)
+        modifier_aligned = pd.concat([modifier_aligned, nan_pad])
+
+    return modifier_aligned
+
+
+
+
+
+
+
+
 #------------------------------------------------------------------------------------------------------------------#
 
 
@@ -317,54 +374,71 @@ def aggregate_ticks_to_bars(df, ticks_per_bar):
 Precondition : Un dataframe OHLC,  un dataframe avec au moins un side c'est a dire entries et short
 Postcondition : print un graphique movible
 """
-def print_trades(long_short, entries_long, entries_short, exits_long, exits_short, data):
-    
-    numeric_index = np.arange(1, len(data['close']) + 1)
-
+def print_trades(entries_long, entries_short, exits_long, exits_short, data):
+    numeric_index = np.arange(len(data['close']))  
 
     fig = go.Figure(data=[go.Scatter(
-        x=numeric_index,  # Utilisation de l'index numérique
+        x=numeric_index,
         y=data['close'],
         mode='lines',
         name='Prix de clôture',
         line=dict(color='#00ff88', width=1)
     )])
-    
-    # Ajouter les entrées longues
-    if entries_long.any():
+
+
+    def validate_and_convert(series, reference):
+        """ Vérifie que series est bien un array de booléens et a la bonne taille """
+        if series is None:
+            return np.array([], dtype=int)  
+        series = np.asarray(series)  
+        if len(series) != len(reference):  
+            raise ValueError(f"Longueur invalide : attendu {len(reference)}, reçu {len(series)}")
+        return np.where(series)[0]  
+
+    try:
+        entries_long_idx = validate_and_convert(entries_long, data['close'])
+        entries_short_idx = validate_and_convert(entries_short, data['close'])
+        exits_long_idx = validate_and_convert(exits_long, data['close'])
+        exits_short_idx = validate_and_convert(exits_short, data['close'])
+    except ValueError as e:
+        print(f"Erreur : {e}")
+        return  
+
+
+    if len(entries_long_idx) > 0:
         fig.add_trace(go.Scatter(
-            x=numeric_index[entries_long],
-            y=data['close'][entries_long],
+            x=numeric_index[entries_long_idx],
+            y=data['close'].iloc[entries_long_idx],
             mode='markers',
             marker=dict(symbol='x', size=10, color='blue'),
             name='Entrée Long'
         ))
-    
-    # Ajouter les entrées courtes (si elles existent)
-    if entries_short is not None and entries_short.any():
+
+
+    if len(entries_short_idx) > 0:
         fig.add_trace(go.Scatter(
-            x=numeric_index[entries_short],
-            y=data['close'][entries_short],
+            x=numeric_index[entries_short_idx],
+            y=data['close'].iloc[entries_short_idx],
             mode='markers',
             marker=dict(symbol='x', size=10, color='red'),
             name='Entrée Short'
         ))
-    
-    # Ajouter les sorties longues (si elles existent)
-    if exits_long is not None and exits_long.any():
+
+
+    if len(exits_long_idx) > 0:
         fig.add_trace(go.Scatter(
-            x=numeric_index[exits_long],
-            y=data['close'][exits_long],
+            x=numeric_index[exits_long_idx],
+            y=data['close'].iloc[exits_long_idx],
             mode='markers',
             marker=dict(symbol='triangle-up', size=10, color='blue'),
             name='Sortie Long'
         ))
-    
-    # Ajouter les sorties courtes (si elles existent)
-    if exits_short is not None and exits_short.any():
+
+
+    if len(exits_short_idx) > 0:
         fig.add_trace(go.Scatter(
-            x=numeric_index[exits_short],
-            y=data['close'][exits_short],
+            x=numeric_index[exits_short_idx],
+            y=data['close'].iloc[exits_short_idx],
             mode='markers',
             marker=dict(symbol='triangle-down', size=10, color='red'),
             name='Sortie Short'
@@ -403,8 +477,12 @@ def print_close(data):
 def get_pnl(portfolio):
     equity = portfolio.value()
     fig = equity.vbt.plot()
-    fig.update_layout(template="plotly_dark")  
+    fig.update_layout(template="plotly_dark", showlegend=False)  
     fig.show()
+
+
+
+
 
 #-----------------------------------------------------------------------------------------------------------------#
 
@@ -420,7 +498,167 @@ def get_pnl(portfolio):
 #------------------------------------------------------METRICS----------------------------------------------------#
 
 
+def get_details_variable(liste):
+    for var in liste:
+        print(f"Variable : {getattr(var, 'name', 'N/A')}")  # Utilise 'N/A' si .name n'existe pas
+        print(f"Type : {type(var)}")
+        
+        # Vérifie si l'objet a un attribut `.shape`
+        if hasattr(var, "shape"):
+            print(f"Shape : {var.shape}")
+        elif isinstance(var, list):  # Si c'est une liste, affiche la longueur
+            print(f"Shape (approximatif) : ({len(var)},)")
+        else:
+            print("Shape : N/A")
+        
+        print("\n")
 
+
+def get_metrics(portfolio,params):
+    if params == 1:
+        return portfolio.total_return().mean()
+    if params == 2:
+        return portfolio.sharpe_ratio().mean()
+    if params == 3:
+        return portfolio.calmar_ratio().mean()
+    if params == 4:
+        return  portfolio.win_rate().mean()
+
+def get_3d_surface_metrics(params,portfolio, combinaison, metrics,axex,axey, elev=30, azim=120):
+    perf_combi = []
+    if params==2:
+        for index in range(len(combinaison)):  
+            metrics_avrg = []  
+
+            value_metrics = get_metrics(portfolio[index], metrics)
+            metrics_avrg.append(round(value_metrics,2))
+                
+            avg_metrics = sum(metrics_avrg)  
+            param1, param2 = combinaison[index]  
+            perf_combi.append((param1, param2, avg_metrics))  
+
+        df_perf = pd.DataFrame(perf_combi, columns=["Paramètre 1", "Paramètre 2", "Performance"])
+        df_perf = df_perf.groupby(["Paramètre 1", "Paramètre 2"]).mean().reset_index()
+        df_pivot = df_perf.pivot(index="Paramètre 2", columns="Paramètre 1", values="Performance")
+
+        X = df_pivot.columns.values  
+        Y = df_pivot.index.values    
+        X, Y = np.meshgrid(X, Y)  
+        Z = df_pivot.values       
+
+        # Création de la figure et de l'axe 3D
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Définition de l'angle de vue
+        ax.view_init(elev=elev, azim=azim)
+
+        # Tracé de la surface avec `plot_surface`
+        surf = ax.plot_surface(X, Y, Z, cmap="RdYlGn", edgecolor='k', linewidth=0.5)
+        ax.set_xlabel(axex)
+        ax.set_ylabel(axey)
+        ax.set_zlabel("Performance")
+        ax.set_title("Graphique 3D des performances")
+
+        # Ajout d'une barre de couleur
+        fig.colorbar(surf, shrink=0.5, aspect=10)
+
+        plt.show()
+
+        return df_pivot
+    else:
+        perf_combi = []
+
+        for index in range(len(combinaison)):  
+            param1, param2, param3 = combinaison[index]  
+            value_metrics = get_metrics(portfolio[index], metrics)
+            perf_combi.append((param1, param2, param3, round(value_metrics, 2)))  
+
+        df_perf = pd.DataFrame(perf_combi, columns=["Paramètre 1", "Paramètre 2", "Paramètre 3", "Performance"])
+
+        X = df_perf["Paramètre 1"].values  
+        Y = df_perf["Paramètre 2"].values  
+        Z = df_perf["Paramètre 3"].values  
+        P = df_perf["Performance"].values  
+
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+
+        ax.view_init(elev=elev, azim=azim)
+
+        # Tracé de la surface avec trisurf
+        surf = ax.plot_trisurf(X, Y, P, cmap="RdYlGn", edgecolor='k', linewidth=0.5)
+        
+        ax.set_xlabel("Paramètre 1")
+        ax.set_ylabel("Paramètre 2")
+        ax.set_zlabel("Performance")
+        ax.set_title("Graphique 3D des performances")
+
+        fig.colorbar(surf, shrink=0.5, aspect=10)
+
+        plt.show()
+
+        return df_perf
+
+
+
+def get_barplot(portfolio, combinaison, metrics):
+    perf_combi = []  
+    for index in range(len(combinaison)):  
+        value_metrics = get_metrics(portfolio[index], metrics)
+        perf_combi.append((combinaison[index], round(value_metrics, 2)))  
+  
+    df_perf = pd.DataFrame(perf_combi, columns=["Paramètre", "Performance"])
+
+   
+    plt.figure(figsize=(10, 6))
+    sns.barplot(data=df_perf, x="Paramètre", y="Performance", palette="RdYlGn")
+    
+    plt.xlabel("Valeurs du Paramètre")
+    plt.ylabel("Performance")
+    plt.title("Performance en fonction du paramètre")
+    plt.xticks(rotation=45)  # Rotation pour lisibilité si nécessaire
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.show()
+    return df_perf
+
+def get_heatmap(portfolio, combinaison, metrics):
+    perf_combi = []
+
+    for index in range(len(combinaison)):  
+        metrics_avrg = []  
+
+        value_metrics = get_metrics(portfolio[index], metrics)
+        metrics_avrg.append(round(value_metrics,2))
+            
+        avg_metrics = sum(metrics_avrg) 
+        param1, param2 = combinaison[index]  
+        perf_combi.append((param1, param2, avg_metrics))  
+
+    df_perf = pd.DataFrame(perf_combi, columns=["Paramètre 1", "Paramètre 2", "Performance"])
+
+    df_perf = df_perf.groupby(["Paramètre 1", "Paramètre 2"]).mean().reset_index()
+
+    df_pivot = df_perf.pivot(index="Paramètre 2", columns="Paramètre 1", values="Performance")
+
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(df_pivot, cmap="RdYlGn", annot=True, fmt=".3f", annot_kws={"size": 6})
+    plt.xlabel("Paramètre 1")
+    plt.ylabel("Paramètre 2")
+    plt.title("Heatmap des performances")
+    plt.show()
+
+    return df_pivot
+
+
+def get_best_param(df_pivot):
+    df_filtered = df_pivot.replace([np.inf, -np.inf], np.nan)  
+    max_value = df_filtered.max().max()  
+
+    if np.isnan(max_value):  
+        return None, None, None  
+    best_param = df_filtered.stack().idxmax()  
+    return best_param[1], best_param[0], max_value
 
 
 def generate_metrics_report(portfolio, close,ticker):
@@ -565,3 +803,54 @@ def get_metrics_global():
     # Calculer le sharp, total return, return annualized etc
     # Addition le total trade / win rate etc -> Faire le meme rapport de metrics que le individuel
     pass
+
+
+
+
+
+def generate_wf_cycles(df, ios_period, oos_period):
+    cycles = []
+    start_date = df.index.min()
+    end_date = df.index.max()
+    
+    while True:
+        ios_start = start_date
+        ios_end = ios_start + pd.DateOffset(years=int(ios_period[:-1])) if 'Y' in ios_period else ios_start + pd.DateOffset(months=int(ios_period[:-1]))
+        
+        oos_start = ios_end 
+        oos_end = oos_start + pd.DateOffset(years=int(oos_period[:-1])) if 'Y' in oos_period else oos_start + pd.DateOffset(months=int(oos_period[:-1]))
+        
+        if oos_end > end_date:
+            oos_end = end_date
+            ios_start_idx = df.index.get_indexer([ios_start], method='bfill')[0]
+            ios_end_idx = df.index.get_indexer([ios_end], method='bfill')[0]
+            oos_start_idx = df.index.get_indexer([oos_start], method='bfill')[0]
+            oos_end_idx = df.index.get_indexer([oos_end], method='bfill')[0] + 1
+            cycles.append((ios_start_idx, ios_end_idx, oos_start_idx, oos_end_idx))
+            break
+        else:
+
+            ios_start_idx = df.index.get_indexer([ios_start], method='bfill')[0]
+            ios_end_idx = df.index.get_indexer([ios_end], method='bfill')[0]
+            oos_start_idx = df.index.get_indexer([oos_start], method='bfill')[0]
+            oos_end_idx = df.index.get_indexer([oos_end], method='bfill')[0]
+            cycles.append((ios_start_idx, ios_end_idx, oos_start_idx, oos_end_idx))
+        start_date = start_date + pd.DateOffset(years=int(oos_period[:-1])) if 'Y' in oos_period else start_date + pd.DateOffset(months=int(oos_period[:-1]))
+    
+    return cycles
+
+#---------------------------------------------------------------------------------------------------------------------------------------#
+
+
+
+
+
+
+
+
+
+
+#------------------------------------------------------UNIFORMISER POUR LE BACKTEST ----------------------------------------------------#
+
+
+
