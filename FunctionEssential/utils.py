@@ -25,40 +25,41 @@ CRYPTO_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\CryptoH
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
 
-def get_data_indice(tickers, frequence, start_period=None, end_period=None):
-    data_dict = {}  
-    max_length = 0  
+def get_data_indice(tickers, frequences, start_period=None, end_period=None):
+    data_dict = {freq: {} for freq in frequences}  
+    max_length = {freq: 0 for freq in frequences} 
 
     for ticker in tickers:
         file_path = INDICE_PATH.format(ticker)
+        
         try:
-            # Chargement et uniformisation
             df = pd.read_csv(file_path)
-            df = uniform_convention_data(df)  # Datetime est maintenant l'index
-
-            # Filtrage via l'index
+            df = uniform_convention_data(df)  # Standardiser les conventions
+            
             if start_period:
                 start_date = pd.to_datetime(start_period)
                 df = df.loc[df.index >= start_date]
             if end_period:
                 end_date = pd.to_datetime(end_period)
                 df = df.loc[df.index <= end_date]
-            # Resample
-            df = resample_and_return(df, frequence)
-            # Mettre à jour la longueur maximale
-            max_length = max(max_length, len(df))
-            data_dict[ticker] = df
 
+            # Appliquer le resampling pour chaque fréquence demandée
+            for freq in frequences:
+                df_resampled = resample_and_return(df, freq)
+                data_dict[freq][ticker] = df_resampled  # Stocker le dataframe
+                max_length[freq] = max(max_length[freq], len(df_resampled))  # Mettre à jour max_length
+                
         except Exception as e:
             print(f"Erreur lors du chargement des données pour {ticker}: {e}")
 
     # Uniformisation de la taille (version corrigée)
-    for ticker, df in data_dict.items():
-        if len(df) < max_length:
-            fill_data = {col: [np.nan] * (max_length - len(df)) for col in df.columns}
-            df = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
-            df.index.name = 'Datetime'  
-            data_dict[ticker] = df
+    for freq, tickers_data in data_dict.items():
+        for ticker, df in tickers_data.items():
+            if len(df) < max_length[freq]:
+                fill_data = {col: [np.nan] * (max_length[freq] - len(df)) for col in df.columns}
+                df = pd.concat([df, pd.DataFrame(fill_data)], ignore_index=False)
+                df.index.name = 'Datetime'
+                data_dict[freq][ticker] = df  # Mettre à jour avec la version uniformisée
 
     return data_dict
 
@@ -564,8 +565,6 @@ def get_3d_surface_metrics(params,portfolio, combinaison, metrics,axex,axey, ele
         fig.colorbar(surf, shrink=0.5, aspect=10)
 
         plt.show()
-
-        return df_pivot
     else:
         perf_combi = []
 
@@ -598,67 +597,75 @@ def get_3d_surface_metrics(params,portfolio, combinaison, metrics,axex,axey, ele
 
         plt.show()
 
-        return df_perf
 
 
 
-def get_barplot(portfolio, combinaison, metrics):
+
+def get_barplot(portfolio, combinaison, metrics,params_name, figsize_x=10, figsize_y=6):
     perf_combi = []  
     for index in range(len(combinaison)):  
         value_metrics = get_metrics(portfolio[index], metrics)
         perf_combi.append((combinaison[index], round(value_metrics, 2)))  
-  
     df_perf = pd.DataFrame(perf_combi, columns=["Paramètre", "Performance"])
-
-   
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(figsize_x, figsize_y))  # Taille ajustable
     sns.barplot(data=df_perf, x="Paramètre", y="Performance", palette="RdYlGn")
-    
-    plt.xlabel("Valeurs du Paramètre")
+    plt.xlabel(params_name)
     plt.ylabel("Performance")
     plt.title("Performance en fonction du paramètre")
-    plt.xticks(rotation=45)  # Rotation pour lisibilité si nécessaire
+    plt.xticks(rotation=45, fontsize=max(8, figsize_x))  
+    plt.yticks(fontsize=max(8, figsize_y))  
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.show()
-    return df_perf
 
-def get_heatmap(portfolio, combinaison, metrics):
+
+
+
+
+#Print une heatmap des performance 
+def get_heatmap(portfolio, combinaison, metrics, params1_name, params2_name, figsize_x=10, figsize_y=8):
     perf_combi = []
-
     for index in range(len(combinaison)):  
-        metrics_avrg = []  
-
         value_metrics = get_metrics(portfolio[index], metrics)
-        metrics_avrg.append(round(value_metrics,2))
-            
-        avg_metrics = sum(metrics_avrg) 
         param1, param2 = combinaison[index]  
-        perf_combi.append((param1, param2, avg_metrics))  
-
-    df_perf = pd.DataFrame(perf_combi, columns=["Paramètre 1", "Paramètre 2", "Performance"])
-
-    df_perf = df_perf.groupby(["Paramètre 1", "Paramètre 2"]).mean().reset_index()
-
-    df_pivot = df_perf.pivot(index="Paramètre 2", columns="Paramètre 1", values="Performance")
-
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(df_pivot, cmap="RdYlGn", annot=True, fmt=".3f", annot_kws={"size": 6})
-    plt.xlabel("Paramètre 1")
-    plt.ylabel("Paramètre 2")
-    plt.title("Heatmap des performances")
+        perf_combi.append((param1, param2, round(value_metrics, 2)))  
+    df_perf = pd.DataFrame(perf_combi, columns=[params1_name, params2_name, "Performance"])
+    df_perf = df_perf.groupby([params1_name, params2_name]).mean().reset_index()
+    df_pivot = df_perf.pivot(index=params2_name, columns=params1_name, values="Performance")
+    plt.figure(figsize=(figsize_x, figsize_y))  # Taille ajustable
+    sns.heatmap(df_pivot, cmap="RdYlGn", annot=True, fmt=".3f", annot_kws={"size": 4})
+    plt.xlabel(params1_name, fontsize=max(10, figsize_x))
+    plt.ylabel(params2_name, fontsize=max(10, figsize_y))
+    plt.title("Heatmap des performances", fontsize=max(12, (figsize_x + figsize_y) // 2))
+    plt.xticks(fontsize=max(8, figsize_x - 2))
+    plt.yticks(fontsize=max(8, figsize_y - 2))
     plt.show()
 
-    return df_pivot
 
 
-def get_best_param(df_pivot):
-    df_filtered = df_pivot.replace([np.inf, -np.inf], np.nan)  
-    max_value = df_filtered.max().max()  
 
-    if np.isnan(max_value):  
-        return None, None, None  
-    best_param = df_filtered.stack().idxmax()  
-    return best_param[1], best_param[0], max_value
+
+def get_best_param(portfolio, combinaison, metrics, nbr_param):
+    best_combi = []
+    max = -10000
+
+    if nbr_param ==1 :
+        for index in range(len(combinaison)):   
+            value_metrics = get_metrics(portfolio[index], metrics)
+            param1 = combinaison[index]
+            if value_metrics > max:
+                max = value_metrics
+                best_combi = param1
+
+
+    if nbr_param == 2:
+        for index in range(len(combinaison)):  
+            value_metrics = get_metrics(portfolio[index], metrics)
+            param1, param2 = combinaison[index]  
+            if value_metrics > max:
+                max = value_metrics
+                best_combi = [param1,param2]
+    
+    return best_combi
 
 
 def generate_metrics_report(portfolio, close,ticker):
@@ -714,9 +721,9 @@ def rapport_backtest(portfolio,close,datetime,tickers):
         print(f'\n------------------------------------------------------------------DETAILS : {ticker}-----------------------------------------------------------------\n')
         generate_metrics_report(portfolio,close,ticker)
         get_pnl(portfolio[ticker])
-        average_duration_and_plot(portfolio[ticker],datetime[ticker])
-        portfolio.plot_drawdowns(column=ticker).show()
-        portfolio.plot_underwater(column=ticker).show()
+        # average_duration_and_plot(portfolio[ticker],datetime[ticker])
+        # portfolio.plot_drawdowns(column=ticker).show()
+        # portfolio.plot_underwater(column=ticker).show()
         print('\n--------------------------------------------------------------------------------------------------------------------------------------------------\n')
 
 
@@ -798,15 +805,6 @@ def get_equity_global(portfolio, tickers, initial_capital=100000):
 
 
 
-def get_metrics_global():
-
-    # Calculer le sharp, total return, return annualized etc
-    # Addition le total trade / win rate etc -> Faire le meme rapport de metrics que le individuel
-    pass
-
-
-
-
 
 def generate_wf_cycles(df, ios_period, oos_period):
     cycles = []
@@ -850,7 +848,11 @@ def generate_wf_cycles(df, ios_period, oos_period):
 
 
 
-#------------------------------------------------------UNIFORMISER POUR LE BACKTEST ----------------------------------------------------#
+#------------------------------------------------------ REALITY CHECK ----------------------------------------------------#
 
 
+#Cette fct prend en parametre un portfolio et extrais les trades, puis ensuite print un graphique avec un nbr de lancer
+def bootstrapping(portfolio,nbr_lancer):
+    trade_returns = portfolio.trades.returns
+    print(trade_returns)
 
