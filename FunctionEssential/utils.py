@@ -13,14 +13,14 @@ pio.templates.default = "plotly_dark"
 
 
 
-INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
-INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
-FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
-CRYPTO_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\CryptoHub\{0}.csv'
+# INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
+# INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
+# FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+# CRYPTO_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\CryptoHub\{0}.csv'
 
-# INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
-# INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
-# FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
+INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
+INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
+FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
 
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
@@ -852,7 +852,37 @@ def generate_wf_cycles(df, ios_period, oos_period):
 
 
 #Cette fct prend en parametre un portfolio et extrais les trades, puis ensuite print un graphique avec un nbr de lancer
-def bootstrapping(portfolio,nbr_lancer):
-    trade_returns = portfolio.trades.returns
-    print(trade_returns)
+#Ici c'est un tirage aléatoire de nbr de fois le nbr de trade, ici un meme trade peut etre selectionner plusieurs fois 
+
+def bootstrapping(portfolio, nbr_lancer):
+    trade_returns = portfolio.trades.records_readable['Return'].values  
+    nbr_trades = len(trade_returns)
+
+    plt.figure(figsize=(12, 6))
+
+ 
+    for _ in range(nbr_lancer):
+        sampled_returns = np.random.choice(trade_returns, size=nbr_trades, replace=True)
+        equity_curve = np.cumprod(1 + sampled_returns)  
+        equity_curve = np.insert(equity_curve, 0, 1)  
+        plt.plot(equity_curve, alpha=0.3, color="blue")
+
+    original_equity_curve = np.cumprod(1 + trade_returns)  
+    original_equity_curve = np.insert(original_equity_curve, 0, 1)  
+    plt.plot(original_equity_curve, color="red", linewidth=2.5, label="Équity Initiale", zorder=3)
+    plt.title(f"Simulations Monte Carlo ({nbr_lancer} runs)")
+    plt.xlabel("Trades")
+    plt.ylabel("Equity")
+    plt.legend()  
+    plt.show()
+
+
+
+#Prend un dataframe d'entrée et de sortie et va venir les degrader, egalement continuer dans la demarche avec vectorbt
+#Ou tu vas venir mettre des slipage un peu aléatoirement pour simuler des mauvaise condition de marcher
+#Venir également mettre des fees plus forte aléatoirement pour simuler un peu si la strat est robuste 
+def degradation():
+    pass 
+
+
 
