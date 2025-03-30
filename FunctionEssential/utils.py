@@ -13,14 +13,14 @@ pio.templates.default = "plotly_dark"
 
 
 
-# INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
-# INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
-# FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
-# CRYPTO_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\CryptoHub\{0}.csv'
+INDICE_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHub\{0}.csv'
+INDICE_TICK_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\IndiceHubTicks\{0}.csv'
+FOREX_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\ForexHub\{0}.csv'
+CRYPTO_PATH = r'C:\Users\Jordi\Desktop\Environement de developement\Data\CryptoHub\{0}.csv'
 
-INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
-INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
-FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
+# INDICE_PATH = r'H:\Desktop\Data\{0}.csv'
+# INDICE_TICK_PATH = r'H:\Desktop\Data\{0}.csv'
+# FOREX_PATH = r'H:\Desktop\Data\{0}.csv'
 
 #-------------------------------------------------DATA GESTION-------------------------------------------------#
 
@@ -325,6 +325,7 @@ def aggregate_ticks_to_bars(df, ticks_per_bar):
 
 def resample_shape_frequence(referenciel, modifier):
     original_index_type = type(modifier.index)  
+    
     if not isinstance(referenciel.index, pd.DatetimeIndex):
         referenciel.index = pd.to_datetime(referenciel.index)
     if not isinstance(modifier.index, pd.DatetimeIndex):
