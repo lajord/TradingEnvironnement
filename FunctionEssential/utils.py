@@ -376,7 +376,7 @@ def resample_shape_frequence(referenciel, modifier):
 Precondition : Un dataframe OHLC,  un dataframe avec au moins un side c'est a dire entries et short
 Postcondition : print un graphique movible
 """
-def print_trades(entries_long, entries_short, exits_long, exits_short, data):
+def print_trades(entries_long, entries_short, exits_long, exits_short,adon, data):
     numeric_index = np.arange(len(data['close']))  
 
     fig = go.Figure(data=[go.Scatter(
@@ -445,6 +445,16 @@ def print_trades(entries_long, entries_short, exits_long, exits_short, data):
             marker=dict(symbol='triangle-down', size=10, color='red'),
             name='Sortie Short'
         ))
+
+    if adon != None:
+        fig = go.Figure(data=[go.Scatter(
+            x=numeric_index,
+            y=adon,
+            mode='lines',
+            name='adon',
+            line=dict(color='#00ff88', width=1)
+        )])
+
 
     # Mise en forme du graphique
     fig.update_layout(
